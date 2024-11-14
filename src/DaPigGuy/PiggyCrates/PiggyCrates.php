@@ -39,7 +39,7 @@ class PiggyCrates extends PluginBase
     public array $crates = [];
     /** @var CrateTile[] */
     public array $crateTiles = [];
-    /** @var array<string, Crate> */
+    /** @var Array<string, Crate> */
     public array $crateCreation;
 
     /**
@@ -48,12 +48,13 @@ class PiggyCrates extends PluginBase
     public function onEnable(): void
     {
         $this->getLogger()->emergency("This plugin is not supported PiggyCustomEnchants for a while");
-        
-        foreach ([
-            "Commando" => BaseCommand::class,
-            "InvMenu" => InvMenuHandler::class,
-            "libPiggyUpdateChecker" => libPiggyUpdateChecker::class
-        ] as $virion => $class) {
+        foreach (
+            [
+                "Commando" => BaseCommand::class,
+                "InvMenu" => InvMenuHandler::class,
+                "libPiggyUpdateChecker" => libPiggyUpdateChecker::class
+            ] as $virion => $class
+        ) {
             if (!class_exists($class)) {
                 $this->getLogger()->error($virion . " virion not found. Please download PiggyCrates from Poggit-CI or use DEVirion (not recommended).");
                 $this->getServer()->getPluginManager()->disablePlugin($this);
@@ -78,12 +79,10 @@ class PiggyCrates extends PluginBase
 
         $crateConfig = new Config($this->getDataFolder() . "crates.yml");
         $types = ["item", "command"];
-
         foreach ($crateConfig->get("crates") as $crateName => $crateData) {
-            $this->crates[$crateName] = new Crate($this, $crateName, $crateData["floating-text"] ?? "", array_map(function (array $itemData) use ($crateName, $types): ?CrateItem {
+            $this->crates[$crateName] = new Crate($this, $crateName, $crateData["floating-text"] ?? "", array_map(function (array $itemData) use ($crateName, $types): CrateItem {
                 $tags = null;
                 $item = null;
-
                 if (isset($itemData["nbt"])) {
                     try {
                         $tags = JsonNbtParser::parseJson($itemData["nbt"]);
@@ -91,56 +90,34 @@ class PiggyCrates extends PluginBase
                         $this->getLogger()->warning("Invalid crate item NBT supplied in crate type " . $crateName . ".");
                     }
                 }
-
                 try {
-                    $item = StringToItemParser::getInstance()->parse($itemData["id"] . ":" . $itemData["meta"])?->setCount((int)$itemData["amount"]) ?? LegacyStringToItemParser::getInstance()->parse($itemData["id"] . ":" . $itemData["meta"])?->setCount((int)$itemData["amount"]);
-                } catch (LegacyStringToItemParserException $e) {
-                    $this->getLogger()->error("Error parsing item ID for crate " . $crateName . ": " . $e->getMessage());
+                    $item = StringToItemParser::getInstance()->parse($itemData["id"] . ":" . $itemData["meta"])?->setCount((int) $itemData["amount"]) ?? LegacyStringToItemParser::getInstance()->parse($itemData["id"] . ":" . $itemData["meta"])?->setCount((int) $itemData["amount"]);
+                }catch(LegacyStringToItemParserException $e){
+                    echo $e->getMessage();
                 }
-
-                if ($item === null) {
-                    $this->getLogger()->error("Failed to create item for crate " . $crateName . ". Skipping item.");
-                    return null;
-                }
-
-                if ($tags !== null) {
+                if($tags !== null) {
                     $item->setNamedTag($tags);
                 }
-
-                if (isset($itemData["name"])) {
-                    $item->setCustomName($itemData["name"]);
-                }
-
-                if (isset($itemData["lore"])) {
-                    $item->setLore(explode("\n", $itemData["lore"]));
-                }
-
-                if (isset($itemData["enchantments"])) {
-                    foreach ($itemData["enchantments"] as $enchantmentData) {
-                        if (!isset($enchantmentData["name"]) || !isset($enchantmentData["level"])) {
-                            $this->getLogger()->error("Invalid enchantment configuration used in crate " . $crateName);
-                            continue;
-                        }
-
-                        $enchantment = StringToEnchantmentParser::getInstance()->parse($enchantmentData["name"]);
-                        if ($enchantment !== null) {
-                            $item->addEnchantment(new EnchantmentInstance($enchantment, (int)$enchantmentData["level"]));
-                        }
+                if (isset($itemData["name"])) $item->setCustomName($itemData["name"]);
+                if (isset($itemData["lore"])) $item->setLore(explode("\n", $itemData["lore"]));
+                if (isset($itemData["enchantments"])) foreach ($itemData["enchantments"] as $enchantmentData) {
+                    if (!isset($enchantmentData["name"]) || !isset($enchantmentData["level"])) {
+                        $this->getLogger()->error("Invalid enchantment configuration used in crate " . $crateName);
+                        continue;
                     }
+                    $enchantment = StringToEnchantmentParser::getInstance()->parse($enchantmentData["name"]);
+                    if ($enchantment !== null) $item->addEnchantment(new EnchantmentInstance($enchantment, $enchantmentData["level"]));
                 }
-
                 $itemData["type"] = $itemData["type"] ?? "item";
                 if (!in_array($itemData["type"], $types)) {
                     $itemData["type"] = "item";
                     $this->getLogger()->warning("Invalid crate item type supplied in crate type " . $crateName . ". Assuming type item.");
                 }
-
-                return new CrateItem($item, $itemData["type"], $itemData["commands"] ?? [], (int)$itemData["chance"] ?? 100);
-            }, $crateData["drops"] ?? []), (int)$crateData["amount"], $crateData["commands"] ?? []);
+                return new CrateItem($item, $itemData["type"], $itemData["commands"] ?? [], $itemData["chance"] ?? 100);
+            }, $crateData["drops"] ?? []), $crateData["amount"], $crateData["commands"] ?? []);
         }
 
         if (!PacketHooker::isRegistered()) PacketHooker::register($this);
-
         $this->getServer()->getCommandMap()->register("piggycrates", new CrateCommand($this, "crate", "Create a crate"));
         $this->getServer()->getCommandMap()->register("piggycrates", new KeyCommand($this, "key", "Give a crate key"));
         $this->getServer()->getCommandMap()->register("piggycrates", new KeyAllCommand($this, "keyall", "Give all online players a crate key"));
